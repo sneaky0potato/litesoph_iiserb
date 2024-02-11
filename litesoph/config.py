@@ -2,10 +2,8 @@ import os
 import subprocess
 import pathlib
 import platform
-from configparser import ConfigParser, NoOptionError, NoSectionError
-
-import litesoph
-
+from configparser import ConfigParser
+import platform
 user_data_dir = pathlib.Path.home() / ".litesoph"
 config_file = user_data_dir / "lsconfig.ini"
 
@@ -18,7 +16,16 @@ sections = {
 }
 
 def get_path(name):
-    print("Checking for {}....".format(name))
+    """
+    Attempts to find the path of a given executable using the 'which' command in linux and mac, and 'where' command in windows
+
+    Parameters:
+    - name (str): The name of the executable to find.
+
+    Returns:
+    - str: The full path to the executable if found; None otherwise.
+    """
+    print(f"Checking for {name}...")
     if platform.system().lower() == 'windows':
         command = 'where'
     else:
@@ -83,6 +90,3 @@ def read_config():
     lsconfig = ConfigParser()
     lsconfig.read(config_file)
     return lsconfig
-
-# Additional functions like check_config, set_config, get_mpi_command, etc., remain unchanged.
-
