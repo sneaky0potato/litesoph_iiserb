@@ -8,6 +8,8 @@ import subprocess
 import re
 from scp import SCPClient
 import pexpect
+if sys.platform == 'win32':
+    from pexpect import popen_spawn
 
 
 def execute_cmd_local(command, directory):
@@ -21,7 +23,7 @@ def execute_cmd_local(command, directory):
     
     result = {}
     
-    if type(command).__name__ == 'str':
+    if isinstance(command, str):
         command = [command]
 
     for cmd in command:
@@ -53,9 +55,12 @@ def execute_cmd_remote(command,passwd, timeout=None):
     password: password of remote machine
     timeout: timeperiod in seconds password prompt waits
     """
-    intitial_response = ['Are you sure', 'assword','[#\$] ', pexpect.EOF]
+    intitial_response = ['Are you sure', 'assword:','[#\$] ', pexpect.EOF]
     
-    ssh = pexpect.spawn(command,timeout=timeout)
+    if sys.platform == 'win32':
+        ssh = popen_spawn.PopenSpawn(command,timeout=timeout)
+    else:
+        ssh = pexpect.spawn(command,timeout=timeout)
     i = ssh.expect(intitial_response)
     if i == 0 :
         T = ssh.read(100)
@@ -197,7 +202,7 @@ class SubmitNetwork:
         
         if self.network_sub.check_file(self.remote_path):
             self.task.add_proper_path(self.remote_path)
-            self.upload_files()        
+            self.upload_files()
         else:
             raise FileNotFoundError(f"Remote path: {self.remote_path} not found.")
         self.task_info.job_info.submit_mode = 'remote'
@@ -205,10 +210,10 @@ class SubmitNetwork:
     def upload_files(self):
         """uploads entire project directory to remote path"""
 
-        include = ['*/','*.xyz', '*.sh', f'{self.task.NAME}/**']
-        (error, message) = rsync_upload_files(ruser=self.username, rhost=self.hostname,port=self.port, password=self.password,
+        include = ['*.xyz', '*.sh', f'{self.task.NAME}/']
+        (error, message) = scp_cmd(ruser=self.username, rhost=self.hostname,port=self.port, password=self.password,
                                                 source_dir=str(self.project_dir), dst_dir=str(self.remote_path),
-                                                include=include, exclude='*')
+                                                include=include, exclude=[])
         #self.network_sub.upload_files(str(self.project_dir), str(self.remote_path), recursive=True)
         if error != 0:
             raise Exception(message)
@@ -218,8 +223,8 @@ class SubmitNetwork:
         remote_path = pathlib.Path(self.remote_path) / self.project_dir.name
         #self.network_sub.download_files(str(remote_path),str(self.project_dir.parent),  recursive=True)
         if (self.ls_file_mgmt_mode==False):
-            (error, message) = rsync_download_files(ruser=self.username, rhost=self.hostname,port=self.port, password=self.password,
-                                                source_dir=str(remote_path), dst_dir=str(self.project_dir.parent))
+            (error, message) = scp_cmd(ruser=self.username, rhost=self.hostname,port=self.port, password=self.password,
+                                                source_dir=str(remote_path), dst_dir=str(self.project_dir.parent), upload=False)
         
         elif (self.ls_file_mgmt_mode==True):
             (error, message)=download_files_from_remote(self.hostname,self.username,self.port,self.password,remote_path,self.project_dir)
@@ -478,19 +483,10 @@ class NetworkJobSubmission:
 
         return exit_status, ssh_output, ssh_error
 
-
-def rsync_upload_files(ruser, rhost,port, password, source_dir, dst_dir, include=None, exclude= None):
-
-    return rsync_cmd(ruser, rhost, port, password, source_dir, dst_dir, include=include, exclude=exclude)
-
-def rsync_download_files(ruser, rhost, port, password, source_dir, dst_dir, include=None, exclude=None):
-    
-    return rsync_cmd(ruser, rhost, port, password, source_dir, dst_dir, include=include, exclude=exclude,upload=False)
-
-def rsync_cmd(ruser, rhost, port, password, source_dir, dst_dir,include=None, exclude=None, upload=True):
+def scp_cmd(ruser, rhost, port, password, source_dir, dst_dir,include=None, exclude=None, upload=True):
     
     cmd = []
-    cmd.append(f'''rsync -av -e "ssh -p {port}"''') 
+    cmd.append(f'''scp -r -p{port}''') 
 
     def append(name, option):
         if type(option) == str:
@@ -500,13 +496,19 @@ def rsync_cmd(ruser, rhost, port, password, source_dir, dst_dir,include=None, ex
     if bool(include) and bool(exclude):
         for name, option in [('include', include), ('exclude', exclude)]:
             append(name, option)
-   
+
+    # for inc in include:
+    #     cmd.append(f"")
+
     if upload:
         cmd.append(f"{source_dir} {ruser}@{rhost}:{dst_dir}")   
     else:
         cmd.append(f"{ruser}@{rhost}:{source_dir} {dst_dir}")
     
     cmd = ' '.join(cmd)
+    # if upload:
+    #     (error, message) = execute_cmd_local(cmd, source_dir)
+    # else:
     (error, message) = execute_cmd_remote(cmd, passwd=password)
     
     return (error, message)

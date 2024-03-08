@@ -57,7 +57,7 @@ class PropertyNotPresent(TaskError):
 class Task:
 
     """Base-class for all tasks. All the tasks in the litesoph
-    inherets from this class. This class is interfaced whith 
+    inherets from this class. This class is interfaced with 
     SubmitLocal and SubmitNetwork class.
     
     Parameters
