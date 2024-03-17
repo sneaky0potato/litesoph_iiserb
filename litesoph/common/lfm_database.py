@@ -54,16 +54,6 @@ def add_element(dict, key, value):
     if key not in dict:
         dict[key] = {}
     dict[key] = value
-
-def keys_exists(dictionary, keys):
-    nested_dict = dictionary
-
-    for key in keys:
-        try:
-            nested_dict = nested_dict[key]
-        except KeyError:
-            return False
-    return True
     
 def lfm_file_info_dict():
     """
