@@ -10,7 +10,8 @@ from scp import SCPClient
 from paramiko import SSHClient, RSAKey, AutoAddPolicy
 import pexpect
 from litesoph.utilities import keys_exists
-if sys.platform == 'win32':
+import platform
+if platform.system() == 'Windows':
     from pexpect import popen_spawn
 
 
@@ -59,7 +60,7 @@ def execute_cmd_remote(command,passwd, timeout=None):
     """
     intitial_response = ['Are you sure', 'assword:','[#\$] ', pexpect.EOF]
     
-    if sys.platform == 'win32':
+    if platform.system() == 'Windows':
         ssh = popen_spawn.PopenSpawn(command,timeout=timeout)
     else:
         ssh = pexpect.spawn(command,timeout=timeout)
@@ -236,9 +237,26 @@ class SubmitNetwork:
         remote_path = pathlib.Path(self.remote_path) / self.project_dir.name
         if self.ls_file_mgmt_mode == False:
             self.scp.get(remote_path, self.project_dir.parent, recursive=True)
-        else:
-            (error, message)=download_files_from_remote(self.hostname,self.username,self.port,self.password,remote_path,self.project_dir)
-            if error != 0: raise Exception(message)
+            return
+
+        self._check_connection()
+        from litesoph.common.lfm_database import lfm_file_info_dict
+        lfm_file_info = lfm_file_info_dict()
+        self.sshClient.exec_command(f'cd {remote_path}; find "$PWD"  -type f > listOfFiles_remote.list')
+        self.scp.get(f'{remote_path}/listOfFiles_remote.list', self.project_dir)
+        
+        data = []
+        with open(f'{self.project_dir}/listOfFiles_remote.list', 'r') as file:
+            data = file.read()
+        data = data.split('\n')
+        data = [x for x in data if not re.search(r'listOfFiles', x)]
+        file_info = create_file_info(data, lfm_file_info)
+
+        priority1_files_dict=filter_dict(file_info,{'file_relevance':['very_impt']})
+        priority2_files_dict=filter_dict(file_info,{'file_relevance':['impt']})
+
+        (error, message)=download_files_from_remote(self.hostname,self.username,self.port,self.password,remote_path,self.project_dir)
+        if error != 0: raise Exception(message)
 
     def download_files(self, remote_file_path, local_path):
         "This method downloads the file from cluster"
@@ -263,9 +281,10 @@ class SubmitNetwork:
         self._check_connection()
         self.task.task_info.job_info.submit_returncode = -1
         stdin, stdout, stderr = self.sshClient.exec_command(self.command)
-        self.task.task_info.job_info.submit_returncode = 0
         self.task.task_info.job_info.submit_output = stdout.read().decode()
         self.task.task_info.job_info.submit_error = stderr.read().decode()
+        if not self.task.task_info.job_info.submit_error:
+            self.task.task_info.job_info.submit_returncode = 0
 
     def check_job_status(self) -> bool:
         """returns true if the job is completed in remote machine"""
@@ -378,6 +397,8 @@ class SubmitNetwork:
         stdin, stdout, stderr = self.sshClient.exec_command(f"cat {file}")
         return 0, stdout.read().decode()
 
+### SOME UTILITIES TO ABOVE CLASS
+
 def download_files_from_remote(host,username,port,passwd,remote_proj_dir,local_proj_dir):   
     """
    1. get the list of files from remote directory
@@ -401,7 +422,7 @@ def download_files_from_remote(host,username,port,passwd,remote_proj_dir,local_p
     (error, message)=execute_cmd_remote(cmd_listOfFiles_to_local, passwd)
     # (error, message)=execute_cmd_remote(cmd_remove_listOfFiles_remote, passwd)
     
-    listOfFiles_path=f'{local_proj_dir}/listOfFiles_remote.list'    
+    listOfFiles_path=f'{local_proj_dir}/listOfFiles_remote.list'
     file_info_dict=create_file_info(read_file_info_list(listOfFiles_path),lfm_file_info)
 
     # if keys_exists(file_info_dict,'file_relevance')==False:
@@ -438,12 +459,11 @@ def create_file_info(list_of_files_in_remote_dir,lfm_file_info):
 
         if file_extension in list(lfm_file_info.keys()):
             metadata=lfm_file_info[file_extension]
-            add_element(file_info_dict, list_of_files_in_remote_dir[i], metadata)
+            file_info_dict[list_of_files_in_remote_dir[i]] = metadata
         else:
-            add_element(file_info_dict, list_of_files_in_remote_dir[i], default_metadata)
+            file_info_dict[list_of_files_in_remote_dir[i]] = default_metadata
     
     return file_info_dict
-
 
 def filter_dict(dictionary,dict_filter_key_value):
     """

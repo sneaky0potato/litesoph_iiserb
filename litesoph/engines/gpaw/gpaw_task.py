@@ -221,12 +221,12 @@ class GpawTask(Task):
         job_script = super().create_job_script()
         engine_cmd = ' ' + str(self.input_filename)
  
-        if remote_path:
+        if not remote_path:
             python_path = 'python3'
             engine_cmd = python_path + engine_cmd
-            rpath = Path(remote_path) / self.task_dir.relative_to(self.directory.parent.parent)
-            job_script = assemable_job_cmd(job_id= self.task_info.uuid
-                                            ,engine_cmd= engine_cmd, np=np, cd_path= str(rpath),
+            # rpath = Path(remote_path) / self.task_dir.relative_to(str(self.directory.parent.parent))
+            job_script = assemable_job_cmd(job_id= self.task_info.uuid,
+                                            engine_cmd= engine_cmd, np=np, cd_path= './' +  str(self.task_dir.name),
                                             remote=True, module_load_block=self.get_engine_network_job_cmd())
         else:
             engine_cmd = python_path + engine_cmd

@@ -383,7 +383,7 @@ class OctopusTask(Task):
        
         engine_path = copy.deepcopy(self.engine_path)
         mpi_path = copy.deepcopy(self.mpi_path)
-        cd_path = self.wf_dir / self.engine_dir
+        cd_path = './octopus'
         extra_cmd = None
         cp_mv_lines = None
 

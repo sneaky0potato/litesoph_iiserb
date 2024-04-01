@@ -79,7 +79,6 @@ class Task:
     job_script_first_line = "#!/bin/bash"
     remote_job_script_last_line = "touch Done"
 
-
     def __init__(self, lsconfig, 
                 task_info: TaskInfo, 
                 dependent_tasks: Union[List[TaskInfo],None]= None
@@ -156,7 +155,7 @@ class Task:
         if job_script:
             self.job_script = job_script
         self.bash_file = self.directory / self.BASH_filename
-        with open(self.bash_file, 'w+') as f:
+        with open(self.bash_file, 'w+', newline='\n') as f:
             f.write(self.job_script)
 
     def add_proper_path(self, path):
@@ -182,9 +181,6 @@ class Task:
 
     def connect_to_network(self, *args, **kwargs):
         self.submit_network = SubmitNetwork(self, *args, **kwargs)
-    
-    def run_job_network():
-        pass
     
     def read_log(self, file):
         with open(file , 'r') as f:
@@ -247,7 +243,7 @@ def assemable_job_cmd(job_id: str= '', engine_cmd:str = None, np: int =1, cd_pat
             job_script.append(module_load_block)
 
     if cd_path:
-        job_script.append(f'cd {cd_path};')
+        job_script.append(f'cd {cd_path}')
         job_script.append(f'touch Start_{job_id}')
         
     if engine_cmd:
@@ -283,11 +279,3 @@ def pbs_job_script(name):
 cd $PBS_O_WORKDIR
    """
     return head_job_script
-
-
-
-
-
-
-  
-
